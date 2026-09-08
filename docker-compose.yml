@@ -2,12 +2,19 @@
 #
 #   docker compose up --build
 #
-# API on :8000, UI on :3000. The API seeds itself on first start, so the corpus is
-# generated and processed through the real pipeline inside the container.
+# API on :8000, UI on :3000. Useful when the review room has no internet and the
+# hosted demonstration is unreachable.
 services:
   api:
     build:
-      context: ./backend
+      # Repository root, not ./backend: backend/Dockerfile copies backend/requirements.txt
+      # and expects the repository's directory layout, the same way Render builds it.
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        # 1 includes the OCR arm of the evaluation in the image (~44 s on a normal
+        # machine, far longer on a throttled VM). See backend/Dockerfile.
+        EVAL_OCR: "0"
     ports:
       - "8000:8000"
     environment:
@@ -15,8 +22,13 @@ services:
       # DATABASE_URL: postgresql+psycopg://landtrust:landtrust@db:5432/landtrust
       EXTRACTION_MODE: DEMO
       CORS_ORIGINS: "*"
-    volumes:
-      - ./data:/app/data
+    # No volume is mounted on /app/data by design. The image is built with the corpus
+    # rendered, the evaluation run and the database seeded, so the container starts in
+    # a known state and /research is populated. Mounting a host directory here would
+    # hide all three and leave the Research Results page empty. Uncomment only if you
+    # want uploads to survive `docker compose down`:
+    # volumes:
+    #   - ./data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
@@ -29,7 +41,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://api:8000
+      # Reachable from the browser, not from inside the compose network: lib/api.ts
+      # calls the API from the user's browser, where "api" does not resolve.
+      NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
       api:
         condition: service_healthy

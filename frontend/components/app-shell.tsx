@@ -10,16 +10,19 @@ import {
   LayoutDashboard,
   Layers3,
   type LucideIcon,
+  Menu,
   MessagesSquare,
   Presentation,
   ShieldCheck,
   Sparkles,
   UserCog,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
+import { createPortal } from "react-dom";
 
 import { useRole } from "@/components/hooks";
 import { PrototypeBadge } from "@/components/ui";
@@ -57,6 +60,55 @@ const NAV: NavGroup[] = [
   },
 ];
 
+/**
+ * Where each role's own controls live.
+ *
+ * Choosing a role changes what the server returns, but it changes nothing on
+ * the page you happen to be standing on — so a user who switches to Land Owner
+ * and stays on the dashboard sees no difference and reasonably concludes the
+ * switch did nothing. This map is what the sidebar and the role switcher use to
+ * say, in the interface, where that role's work actually happens.
+ */
+const ROLE_TOOLS: Record<Role, { note: string; items: NavItem[] }> = {
+  BUYER: {
+    note: "You see the evidence-gated profile. Masked values need the owner's consent.",
+    items: [
+      { href: "/buyer", label: "Browse listings", icon: Users },
+      { href: "/assistant", label: "Ask about a property", icon: Sparkles },
+    ],
+  },
+  OWNER: {
+    note: "Decide access requests, add evidence, and clear what is holding a sale.",
+    items: [
+      { href: "/owner", label: "Access requests", icon: UserCog },
+      { href: "/documents", label: "Upload evidence", icon: FileSearch },
+      { href: "/properties", label: "My properties", icon: Building2 },
+    ],
+  },
+  VERIFIER: {
+    note: "Unmasked claims, contradictions and integrity indicators.",
+    items: [
+      { href: "/properties", label: "Examine a file", icon: Building2 },
+      { href: "/documents", label: "Document intelligence", icon: FileSearch },
+    ],
+  },
+  LEGAL_REVIEWER: {
+    note: "Escalated cases and the complete audit trail.",
+    items: [
+      { href: "/properties", label: "Escalated files", icon: Building2 },
+      { href: "/dashboard", label: "Platform overview", icon: LayoutDashboard },
+    ],
+  },
+  ADMIN: {
+    note: "Demo control and the research dashboards.",
+    items: [
+      { href: "/presentation", label: "Presentation mode", icon: Presentation },
+      { href: "/research", label: "Research results", icon: FlaskConical },
+      { href: "/dashboard", label: "Platform overview", icon: LayoutDashboard },
+    ],
+  },
+};
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -73,13 +125,150 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
         <footer className="border-t border-canvas-border px-6 py-4 lg:px-8">
           <p className="mx-auto max-w-[1500px] text-2xs leading-relaxed text-ink-subtle">
-            LandTrust Connect — research prototype. Statuses describe agreement between the
-            documents uploaded to this platform. They are not a certification of legal title and
-            do not replace official records, registrar verification or professional advice. All
-            data shown is synthetic.
+            LandTrust Connect — research prototype. Statuses describe agreement
+            between the documents uploaded to this platform. They are not a
+            certification of legal title and do not replace official records,
+            registrar verification or professional advice. All data shown is
+            synthetic.
           </p>
         </footer>
       </div>
+    </div>
+  );
+}
+
+function Wordmark() {
+  return (
+    <>
+      <div className="grid h-9 w-9 place-items-center rounded-xl bg-navy-fade text-white shadow-card">
+        <ShieldCheck className="h-4.5 w-4.5" strokeWidth={2.2} />
+      </div>
+      <div className="leading-tight">
+        <div className="text-[15px] font-semibold tracking-tight text-ink">
+          LandTrust
+        </div>
+        <div className="text-2xs font-medium uppercase tracking-[0.16em] text-ink-subtle">
+          Connect
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * The navigation itself, shared by the docked sidebar and the drawer.
+ *
+ * `animateActive` is off in the drawer: the active-item indicator is a shared
+ * layout animation, and running two of them under the same layoutId while both
+ * are mounted makes the marker fly between them.
+ */
+function NavList({
+  pathname,
+  onNavigate,
+  animateActive = true,
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+  animateActive?: boolean;
+}) {
+  const [role] = useRole();
+  const mine = ROLE_TOOLS[role];
+  const roleLabel = ROLES.find((r) => r.role === role)?.label ?? role;
+
+  return (
+    <>
+      {/*
+        The current role's own destinations, first and named after the task
+        rather than the module. Everything below is still reachable — this is a
+        shortcut, not a restriction, because the platform's point is that a
+        reviewer can move between roles and compare what each one sees.
+      */}
+      <div className="mb-5">
+        <div className="section-label px-2.5 pb-1.5">{roleLabel} · your tools</div>
+        <ul className="space-y-0.5">
+          {mine.items.map((item) => {
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            return (
+              <li key={`mine-${item.href}`}>
+                <Link
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+                    active
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-ink-muted hover:bg-canvas-sunken hover:text-ink",
+                  )}
+                >
+                  <Icon
+                    className="h-4 w-4 shrink-0 text-emerald-700"
+                    strokeWidth={active ? 2.2 : 1.9}
+                  />
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="px-2.5 pt-2 text-2xs leading-relaxed text-ink-subtle">{mine.note}</p>
+      </div>
+
+      {NAV.map((group) => (
+        <div key={group.label} className="mb-5">
+          <div className="section-label px-2.5 pb-1.5">{group.label}</div>
+          <ul className="space-y-0.5">
+            {group.items.map((item) => {
+              const active =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+                      active
+                        ? "bg-navy-50 text-navy-900"
+                        : "text-ink-muted hover:bg-canvas-sunken hover:text-ink",
+                    )}
+                  >
+                    {active ? (
+                      animateActive ? (
+                        <motion.span
+                          layoutId="nav-active"
+                          className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-navy-900"
+                        />
+                      ) : (
+                        <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-navy-900" />
+                      )
+                    ) : null}
+                    <Icon
+                      className="h-4 w-4 shrink-0"
+                      strokeWidth={active ? 2.2 : 1.9}
+                    />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function BuildFootnote() {
+  return (
+    <div className="border-t border-canvas-border px-4 py-4">
+      <PrototypeBadge />
+      <p className="mt-2.5 text-2xs leading-relaxed text-ink-subtle">
+        Review-2 build · synthetic corpus · no official records
+      </p>
     </div>
   );
 }
@@ -88,61 +277,123 @@ function Sidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-canvas-border bg-canvas-raised lg:flex">
       <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
-        <div className="grid h-9 w-9 place-items-center rounded-xl bg-navy-fade text-white shadow-card">
-          <ShieldCheck className="h-4.5 w-4.5" strokeWidth={2.2} />
-        </div>
-        <div className="leading-tight">
-          <div className="text-[15px] font-semibold tracking-tight text-ink">LandTrust</div>
-          <div className="text-2xs font-medium uppercase tracking-[0.16em] text-ink-subtle">
-            Connect
-          </div>
-        </div>
+        <Wordmark />
       </Link>
-
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        {NAV.map((group) => (
-          <div key={group.label} className="mb-5">
-            <div className="section-label px-2.5 pb-1.5">{group.label}</div>
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const active =
-                  pathname === item.href || pathname.startsWith(`${item.href}/`);
-                const Icon = item.icon;
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-                        active
-                          ? "bg-navy-50 text-navy-900"
-                          : "text-ink-muted hover:bg-canvas-sunken hover:text-ink",
-                      )}
-                    >
-                      {active ? (
-                        <motion.span
-                          layoutId="nav-active"
-                          className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-navy-900"
-                        />
-                      ) : null}
-                      <Icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.2 : 1.9} />
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+        <NavList pathname={pathname} />
       </nav>
-
-      <div className="border-t border-canvas-border px-4 py-4">
-        <PrototypeBadge />
-        <p className="mt-2.5 text-2xs leading-relaxed text-ink-subtle">
-          Review-2 build · synthetic corpus · no official records
-        </p>
-      </div>
+      <BuildFootnote />
     </aside>
+  );
+}
+
+/**
+ * Navigation below the sidebar's breakpoint.
+ *
+ * Without this, a window narrower than 1024px has no navigation at all — the
+ * sidebar is display:none and the only link in the header is the logo, so the
+ * owner portal, document upload and the research pages become unreachable
+ * except by typing a URL. A projector or a half-width browser is exactly where
+ * that would be discovered.
+ */
+function MobileNav({ pathname }: { pathname: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => setMounted(true), []);
+
+  // Close on navigation, so following a link does not leave the drawer over the
+  // page it just opened.
+  React.useEffect(() => setOpen(false), [pathname]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open navigation"
+        aria-expanded={open}
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-muted transition hover:bg-canvas-sunken hover:text-ink lg:hidden"
+      >
+        <Menu className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+
+      {/*
+        Rendered into document.body rather than in place. The header carries
+        backdrop-blur, and a backdrop-filter establishes a containing block for
+        fixed-position descendants — so an overlay left here is clipped to the
+        56px height of the header instead of covering the viewport.
+      */}
+      {mounted
+        ? createPortal(
+            <AnimatePresence>
+              {open ? (
+                <div className="fixed inset-0 z-50 lg:hidden">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => setOpen(false)}
+                    className="absolute inset-0 bg-navy-900/40 backdrop-blur-[2px]"
+                  />
+                  <motion.div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Navigation"
+                    initial={{ x: -280 }}
+                    animate={{ x: 0 }}
+                    exit={{ x: -280 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 38 }}
+                    className="absolute inset-y-0 left-0 flex w-[272px] max-w-[85vw] flex-col border-r border-canvas-border bg-canvas-raised shadow-raised"
+                  >
+                    <div className="flex items-center justify-between px-5 py-4">
+                      <Link
+                        href="/"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-2.5"
+                      >
+                        <Wordmark />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        aria-label="Close navigation"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle transition hover:bg-canvas-sunken hover:text-ink"
+                      >
+                        <X className="h-4.5 w-4.5" strokeWidth={2} />
+                      </button>
+                    </div>
+                    <nav className="flex-1 overflow-y-auto px-3 pb-4">
+                      <NavList
+                        pathname={pathname}
+                        onNavigate={() => setOpen(false)}
+                        animateActive={false}
+                      />
+                    </nav>
+                    <BuildFootnote />
+                  </motion.div>
+                </div>
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
@@ -153,9 +404,7 @@ function TopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-canvas-border bg-canvas-raised/85 px-6 backdrop-blur lg:px-8">
       <div className="flex min-w-0 items-center gap-2">
-        <Link href="/" className="lg:hidden">
-          <ShieldCheck className="h-5 w-5 text-navy-900" />
-        </Link>
+        <MobileNav pathname={pathname} />
         <nav className="flex min-w-0 items-center gap-1.5 text-[13px]">
           {crumbs.map((crumb, i) => (
             <React.Fragment key={`${crumb}-${i}`}>
@@ -163,10 +412,14 @@ function TopBar() {
               <span
                 className={cn(
                   "truncate",
-                  i === crumbs.length - 1 ? "font-medium text-ink" : "text-ink-muted",
+                  i === crumbs.length - 1
+                    ? "font-medium text-ink"
+                    : "text-ink-muted",
                 )}
               >
-                {crumb.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase())}
+                {crumb
+                  .replace(/-/g, " ")
+                  .replace(/^\w/, (c) => c.toUpperCase())}
               </span>
             </React.Fragment>
           ))}
@@ -189,7 +442,8 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
 
   React.useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -205,7 +459,12 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
           {current.label[0]}
         </span>
         {compact ? null : <span>{current.label}</span>}
-        <ChevronDown className={cn("h-3.5 w-3.5 text-ink-subtle transition", open && "rotate-180")} />
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-ink-subtle transition",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       <AnimatePresence>
@@ -220,8 +479,9 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
             <div className="border-b border-canvas-border px-3.5 py-2.5">
               <div className="section-label">Demo role</div>
               <p className="mt-1 text-2xs leading-relaxed text-ink-muted">
-                Sent as <code className="font-mono">X-Demo-Role</code> on every request. Masking
-                and consent are enforced server-side, so this is not a client-side preview.
+                Sent as <code className="font-mono">X-Demo-Role</code> on every
+                request. Masking and consent are enforced server-side, so this
+                is not a client-side preview.
               </p>
             </div>
             <ul className="p-1.5">
@@ -241,14 +501,23 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
                       <span
                         className={cn(
                           "h-1.5 w-1.5 rounded-full",
-                          r.role === role ? "bg-navy-900" : "bg-canvas-borderStrong",
+                          r.role === role
+                            ? "bg-navy-900"
+                            : "bg-canvas-borderStrong",
                         )}
                       />
-                      <span className="text-[13px] font-medium text-ink">{r.label}</span>
+                      <span className="text-[13px] font-medium text-ink">
+                        {r.label}
+                      </span>
                     </div>
                     <p className="ml-3.5 mt-0.5 text-2xs leading-relaxed text-ink-muted">
                       {r.blurb}
                     </p>
+                    {r.role === role ? (
+                      <p className="ml-3.5 mt-1 text-2xs leading-relaxed text-emerald-800">
+                        {ROLE_TOOLS[r.role as Role].note}
+                      </p>
+                    ) : null}
                   </button>
                 </li>
               ))}
