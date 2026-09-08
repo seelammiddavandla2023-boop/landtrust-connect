@@ -428,6 +428,40 @@ landtrust-connect/
 
 ---
 
+## Troubleshooting
+
+**`sqlite3.OperationalError: disk I/O error` when seeding.** The project is on a folder
+whose filesystem does not implement the file locking SQLite needs — a OneDrive-synced
+folder, a mapped network drive, or a Linux VM's view of a Windows directory. Either move
+the project to a local path such as `C:\dev\landtrust-connect`, or keep the code where it
+is and put only the database elsewhere:
+
+```bash
+# PowerShell
+$env:DATABASE_URL = "sqlite:///C:/temp/landtrust.db"
+# bash
+export DATABASE_URL="sqlite:////tmp/landtrust.db"
+```
+
+Nothing else needs to change; the schema is identical.
+
+**`npm run dev` says port 3000 or 8000 is already in use.** A previous run is still
+holding it. On Windows: `netstat -ano | findstr :3000` then `taskkill /PID <pid> /F`.
+
+**The deployed dashboard is empty but `/api/health` responds.** `NEXT_PUBLIC_API_URL` is
+missing on Vercel, or was added after the build. It is inlined at build time, so add it and
+**redeploy** — restarting is not enough.
+
+**The hosted API takes ~50 seconds on the first request.** Render's free tier sleeps after
+15 minutes idle. Open `/api/health` a few minutes before a live demonstration.
+
+**OCR is unavailable.** Tesseract is optional. Without it the prototype runs in text-layer
+mode and `npm run eval:ocr` reports the OCR arm as unavailable, saying so explicitly.
+Install it from <https://github.com/UB-Mannheim/tesseract/wiki> on Windows,
+`brew install tesseract` on macOS, `apt install tesseract-ocr` on Linux.
+
+---
+
 ## Testing
 
 ```bash

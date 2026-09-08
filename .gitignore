@@ -15,6 +15,9 @@ out/
 
 # Generated data — recreate with `npm run seed` and `npm run eval`
 data/landtrust.db
+data/landtrust.db-journal
+data/*.db-wal
+data/*.db-shm
 data/storage/
 data/metrics.json
 data/synthetic/LTC-PR-*/
