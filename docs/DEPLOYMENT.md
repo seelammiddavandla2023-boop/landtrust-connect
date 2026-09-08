@@ -27,6 +27,10 @@ Worth knowing, because it is a reasonable question and the answer is specific:
 Render's free tier gives a Docker container with `apt` and a writable disk, which is what
 this application needs.
 
+Vercel's import screen will nonetheless *offer* to deploy `backend/` as a FastAPI
+serverless app, because it recognises the framework. Decline it — for the three reasons
+above it would build and then fail at runtime.
+
 ---
 
 ## 1 · The API on Render
@@ -82,7 +86,10 @@ To remove both limitations, upgrade to a paid instance and add a disk mounted at
 ## 2 · The frontend on Vercel
 
 1. <https://vercel.com/new> → import the GitHub repository
-2. Vercel reads `vercel.json` and finds the Next.js app under `frontend/`
+2. **Root Directory → Edit → `frontend`.** This is the step that matters. Vercel's
+   monorepo detection offers to deploy `backend/` as a second serverless app; scoping
+   the project to `frontend/` drops that offer and lets Vercel's zero-config Next.js
+   detection do the rest. `frontend/vercel.json` then supplies only the region.
 3. Before the first deploy, add one environment variable:
 
    | Name | Value | Environments |
