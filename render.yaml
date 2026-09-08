@@ -4,12 +4,12 @@
 # Render reads this file, builds backend/Dockerfile and serves the API.
 #
 # Free tier notes, both of which suit a demonstration:
-#   * No persistent disk. The database is rebuilt from the synthetic corpus on every
-#     cold start (see app/main.py lifespan), so the demo always begins in a known
-#     state and uploads made during a session are cleared when it sleeps.
+#   * No persistent disk. The container's copy of /app/data is reset on each restart,
+#     so the demo always begins in a known state and uploads made during a session
+#     are cleared when it sleeps.
 #   * The service sleeps after 15 minutes idle. The first request afterwards takes
-#     roughly 50 seconds while the container starts and re-seeds. Open the API's
-#     /api/health once a few minutes before a live demonstration to warm it.
+#     roughly 50 seconds while the container starts. Open the API's /api/health once
+#     a few minutes before a live demonstration to warm it.
 services:
   - type: web
     name: landtrust-connect-api
@@ -28,4 +28,12 @@ services:
       - key: CORS_ORIGINS
         value: "*"
       - key: PYTHONUNBUFFERED
+        value: "1"
+      # Render exposes a service's environment variables to the Docker build as build
+      # arguments, so this reaches the ARG of the same name in backend/Dockerfile and
+      # includes the OCR arm of the evaluation in the image. Measured cost on Render's
+      # free build machine: 43.6s, which buys the one comparison on the Research
+      # Results page where the reader varies and the answer key does not. Declared
+      # here rather than only in the dashboard so a blueprint sync cannot drop it.
+      - key: EVAL_OCR
         value: "1"

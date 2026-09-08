@@ -80,16 +80,18 @@ database **at build time**, not at boot. Three consequences worth knowing:
   recomputes risk, so letting it touch the served database would mean a reviewer sees a
   file the evaluation had already poked at.
 
-The **OCR arm is opt-in**, because rasterising every page and reading it with Tesseract
-takes minutes on a small build machine. To include it:
+The **OCR arm is behind a flag**, `EVAL_OCR`, which `render.yaml` sets to `1`. Render
+exposes a service's environment variables to the Docker build as build arguments, so it
+reaches the `ARG` of the same name in the Dockerfile; setting it in the dashboard works
+too, but the blueprint is the durable place for it.
 
-| Setting | Value |
-|---|---|
-| Docker build argument | `EVAL_OCR=1` |
+It is a flag rather than unconditional because the cost varies enormously with the
+machine: **43.6 s** on Render's free build machine, but tens of minutes on a throttled
+VM, where it would make every rebuild painful. Leave it off there.
 
-Without it, `/research` states plainly that the arm was not requested and how to run it —
-it does not claim Tesseract was missing, which would be false on this image. CI runs the
-OCR arm on every push regardless, and uploads `metrics.json` as an artefact, so the
+With it off, `/research` states plainly that the arm was not requested and how to run it
+— it does not claim Tesseract was missing, which would be false on this image. CI runs
+the OCR arm on every push regardless, and uploads `metrics.json` as an artefact, so the
 figure is verified continuously either way.
 
 ### What the free tier means here

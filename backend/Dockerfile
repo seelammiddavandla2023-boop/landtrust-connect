@@ -27,10 +27,11 @@ ENV PYTHONUNBUFFERED=1 \
     EXTRACTION_MODE=DEMO
 
 # Set to 1 to include the OCR arm of the evaluation in the image. It rasterises every
-# page and runs Tesseract over it, which takes several minutes on a small build machine
-# — worth it when the deployed Research Results page is the thing being presented,
-# not worth it on an ordinary deploy. CI runs the OCR arm on every push regardless, so
-# the figure is verified continuously whether or not it is baked in here.
+# page and runs Tesseract over it: 43.6s on Render's free build machine, but tens of
+# minutes on a throttled VM, which is why it is a flag rather than unconditional.
+# render.yaml sets it to 1 — the arm is the one comparison on the Research Results page
+# where the reader varies and the answer key does not. CI runs it on every push
+# regardless, so the figure is verified continuously whether or not it is baked in here.
 ARG EVAL_OCR=0
 
 # Build the demonstration state into the image rather than at boot.
