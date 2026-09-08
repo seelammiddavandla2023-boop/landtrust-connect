@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum" 0;
+  }
+
+  /* Tabular numerals wherever figures are compared down a column. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-navy-900 text-white;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-navy-500/60 ring-offset-2 ring-offset-canvas rounded-md;
+  }
+
+  /* Scrollbars: present but quiet. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-canvas-borderStrong;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-subtle; background-clip: padding-box; }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-canvas-border bg-canvas-raised shadow-card;
+  }
+
+  .card-flush {
+    @apply rounded-2xl border border-canvas-border bg-canvas-raised;
+  }
+
+  .section-label {
+    @apply text-2xs font-semibold uppercase tracking-[0.14em] text-ink-subtle;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-canvas-sunken;
+    background-image: linear-gradient(
+      90deg,
+      theme("colors.canvas.sunken") 0px,
+      #f6f9fd 320px,
+      theme("colors.canvas.sunken") 640px
+    );
+    background-size: 1200px 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Evidence highlight overlay on a rendered document page. */
+  .evidence-highlight {
+    @apply pointer-events-none absolute rounded-[3px] ring-2 ring-emerald-500/80;
+    background: rgba(31, 166, 120, 0.16);
+    transition: all 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .table-grid {
+    @apply w-full border-separate border-spacing-0 text-sm;
+  }
+  .table-grid thead th {
+    @apply sticky top-0 z-10 border-b border-canvas-border bg-canvas-sunken/95 px-4 py-3
+           text-left text-2xs font-semibold uppercase tracking-[0.1em] text-ink-muted
+           backdrop-blur;
+  }
+  .table-grid tbody td {
+    @apply border-b border-canvas-border/70 px-4 py-3 align-top;
+  }
+  .table-grid tbody tr:last-child td { @apply border-b-0; }
+  .table-grid tbody tr.clickable { @apply cursor-pointer transition-colors; }
+  .table-grid tbody tr.clickable:hover { @apply bg-navy-50/60; }
+
+  .scroll-x {
+    @apply overflow-x-auto;
+    scrollbar-width: thin;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
