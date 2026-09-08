@@ -154,7 +154,7 @@ is verified on every commit, not only on your laptop.
 ## Local development after cloning
 
 ```bash
-git clone https://github.com/SathvikMendu/landtrust-connect.git
+git clone https://github.com/seelammiddavandla2023-boop/landtrust-connect.git
 cd landtrust-connect
 
 npm install          # the one-command runner

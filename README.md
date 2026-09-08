@@ -4,7 +4,7 @@
 
 B.Tech research project · Vellore Institute of Technology · **Review-2 prototype**
 
-[![CI](https://github.com/SathvikMendu/landtrust-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/SathvikMendu/landtrust-connect/actions/workflows/ci.yml)
+[![CI](https://github.com/seelammiddavandla2023-boop/landtrust-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/seelammiddavandla2023-boop/landtrust-connect/actions/workflows/ci.yml)
 
 The badge runs the full suite, the Review-2 acceptance sequence and the evaluation harness
 on every push.
