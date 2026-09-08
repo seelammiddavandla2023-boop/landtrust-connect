@@ -23,7 +23,7 @@ from ..db import get_db
 from ..domain import ActionStatus, AuditAction, Role, TransactionState
 from ..models import Property, ResolutionAction, RiskFactor, Transaction
 from ..serializers import assessment_out, resolution_out, transaction_out
-from ..services import audit, pipeline
+from ..services import authz, audit, pipeline
 from ..services.resolution_planner.planner import CATALOGUE, CATALOGUE_BY_KEY
 from ..services.resolution_planner.planner import plan as build_plan
 from ..services.risk_engine.engine import BLOCKED_ACTIONS, STATE_BANNER, compute
@@ -116,6 +116,7 @@ def attempt_action(
 
     Demonstration only — no payment is ever processed by this prototype.
     """
+    authz.require(role, authz.Capability.ATTEMPT_TRANSACTION)
     txn = db.scalars(select(Transaction).where(Transaction.property_id == prop.id)).first()
     if txn is None:
         raise HTTPException(404, "No transaction exists for this property.")
@@ -257,12 +258,7 @@ def apply_action(
     # PROCEED, so it is a privileged operation — not something a buyer, or an
     # unauthenticated caller defaulting to the buyer role, may perform on someone
     # else's file.
-    if role not in {Role.OWNER, Role.ADMIN, Role.VERIFIER}:
-        raise HTTPException(
-            403,
-            "Only the owner, a verifier or an administrator may apply a resolution step. "
-            "Switch role using the selector in the top bar.",
-        )
+    authz.require(role, authz.Capability.APPLY_RESOLUTION)
 
     prop = db.scalars(
         select(Property).where((Property.id == payload.property_id) |

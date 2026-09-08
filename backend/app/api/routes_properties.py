@@ -36,7 +36,7 @@ from ..serializers import (
     resolution_out,
     transaction_out,
 )
-from ..services import pipeline
+from ..services import authz, pipeline
 from ..services.graph.builder import get_graph_store
 from ..services.privacy import consent as consent_service
 from ..services.verification import temporal
@@ -432,6 +432,7 @@ def reassess(
     db: Session = Depends(get_db),
     role: Role = Depends(current_role),
 ):
+    authz.require(role, authz.Capability.REASSESS)
     assessment = pipeline.reassess(db, prop, actor_role=role, actor_name=role.value,
                                    reason="Manual reassessment requested")
     factors = db.scalars(

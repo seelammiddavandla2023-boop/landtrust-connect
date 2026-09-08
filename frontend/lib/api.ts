@@ -99,6 +99,15 @@ export const api = {
 
 /* ---------------------------------------------------------------- endpoints */
 
+/*
+ * These calls used to force a role — consent decisions and resolution steps were
+ * sent as OWNER, and the demo reset as ADMIN, whatever the selector said. That
+ * made every control work for every role, so switching role changed what you saw
+ * and nothing about what you could do. The active role is now sent as it is, and
+ * the server refuses what that role may not do. What a control does is therefore
+ * the same question as who is asking.
+ */
+
 export const endpoints = {
   health: () => api.get<any>("/api/health"),
   roles: () => api.get<any>("/api/roles"),
@@ -133,8 +142,8 @@ export const endpoints = {
   decideConsent: (
     id: string,
     body: { approve: boolean; items?: string[]; time_limited?: boolean; note?: string },
-  ) => api.post<any>(`/api/consent/${id}/decision`, body, "OWNER"),
-  revokeConsent: (id: string) => api.post<any>(`/api/consent/${id}/revoke`, undefined, "OWNER"),
+  ) => api.post<any>(`/api/consent/${id}/decision`, body),
+  revokeConsent: (id: string) => api.post<any>(`/api/consent/${id}/revoke`),
 
   messages: (propertyId: string) => api.get<any>(`/api/messages?property_id=${propertyId}`),
   sendMessage: (body: { property_id: string; body: string }, role?: Role) =>
@@ -155,10 +164,10 @@ export const endpoints = {
   simulate: (property_id: string, action_keys: string[]) =>
     api.post<any>("/api/resolution/simulate", { property_id, action_keys }),
   applyAction: (property_id: string, action_key: string) =>
-    api.post<any>("/api/resolution/apply", { property_id, action_key }, "OWNER"),
+    api.post<any>("/api/resolution/apply", { property_id, action_key }),
 
   scenarios: () => api.get<any>("/api/demo/scenarios"),
-  resetDemo: () => api.post<any>("/api/demo/reset", undefined, "ADMIN"),
+  resetDemo: () => api.post<any>("/api/demo/reset"),
   presentation: () => api.get<any>("/api/demo/presentation"),
 
   metrics: () => api.get<any>("/api/research/metrics"),

@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { getRole, setRole as persistRole } from "@/lib/api";
+import { endpoints, getRole, setRole as persistRole } from "@/lib/api";
 import type { Role } from "@/lib/domain";
 
 /** Minimal data-fetching hook: loading, error, data, refetch. No client cache library. */
@@ -98,4 +98,70 @@ export function useMounted() {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   return mounted;
+}
+
+/**
+ * What the active role is permitted to do.
+ *
+ * The table comes from `/api/roles`, which publishes the same map the routes
+ * enforce, so a disabled control and a server refusal always agree. It is
+ * fetched once per page load and cached at module scope: the table is static
+ * for a build, and re-requesting it on every component that needs it would put
+ * a round trip in front of a button.
+ *
+ * Before the table arrives, `can` returns true. A control that flickers from
+ * enabled to disabled is a smaller problem than one that appears broken for a
+ * moment, and the server is the thing actually enforcing this — an optimistic
+ * click during that window is refused with the reason, not silently accepted.
+ */
+export type Capabilities = {
+  ready: boolean;
+  can: (capability: string) => boolean;
+  why: (capability: string) => string;
+};
+
+let capabilityCache: Record<string, { capabilities: string[]; denied: Record<string, string> }> | null =
+  null;
+let capabilityInFlight: Promise<void> | null = null;
+
+export function useCapabilities(): Capabilities {
+  const [role] = useRole();
+  const [table, setTable] = React.useState(capabilityCache);
+
+  React.useEffect(() => {
+    if (capabilityCache) {
+      setTable(capabilityCache);
+      return;
+    }
+    let cancelled = false;
+    const pending =
+      capabilityInFlight ||
+      endpoints
+        .roles()
+        .then((res: any) => {
+          capabilityCache = res?.capabilities ?? null;
+        })
+        .catch(() => {
+          // Leave the cache empty; `can` stays permissive and the server refuses.
+          capabilityCache = null;
+        })
+        .finally(() => {
+          capabilityInFlight = null;
+        });
+    capabilityInFlight = pending;
+    pending.then(() => {
+      if (!cancelled) setTable(capabilityCache);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const entry = table?.[role];
+  return {
+    ready: Boolean(entry),
+    can: (capability: string) =>
+      entry ? entry.capabilities.includes(capability) : true,
+    why: (capability: string) => entry?.denied?.[capability] ?? "",
+  };
 }

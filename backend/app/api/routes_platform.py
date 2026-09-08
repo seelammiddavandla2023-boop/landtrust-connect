@@ -31,7 +31,7 @@ from ..models import (
 )
 from ..models import Claim as ClaimModel
 from ..serializers import audit_out, property_summary
-from ..services import audit
+from ..services import authz, audit
 from .deps import current_role
 
 router = APIRouter(prefix="/api", tags=["platform"])
@@ -158,6 +158,7 @@ def scenarios(db: Session = Depends(get_db)):
 @router.post("/demo/reset")
 def reset_demo(db: Session = Depends(get_db), role: Role = Depends(current_role)):
     """Rebuild the demo database from the synthetic corpus."""
+    authz.require(role, authz.Capability.RESET_DEMO)
     from ..seed.seed import run
 
     db.close()

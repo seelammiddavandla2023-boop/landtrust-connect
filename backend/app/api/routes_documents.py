@@ -14,7 +14,7 @@ from ..db import get_db
 from ..domain import DOCUMENT_TYPE_LABELS, DocumentType, PIPELINE_ORDER, Role
 from ..models import Document, Property, RiskAssessment, RiskFactor
 from ..serializers import assessment_out, claim_out, document_out
-from ..services import pipeline
+from ..services import authz, pipeline
 from ..services.extractor.registry import available_modes
 from .deps import current_role, get_property, granted_items
 
@@ -54,6 +54,7 @@ async def upload(
     claims and the recomputed risk assessment — so the UI can animate the pipeline
     with what actually happened rather than a scripted sequence.
     """
+    authz.require(role, authz.Capability.UPLOAD_EVIDENCE)
     prop = db.scalars(
         select(Property).where((Property.id == property_id) |
                                (Property.reference == property_id))

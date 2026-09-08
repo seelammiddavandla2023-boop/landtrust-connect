@@ -36,7 +36,7 @@ import Link from "next/link";
 import React from "react";
 
 import { Relay } from "@/components/relay";
-import { useApi, useRole } from "@/components/hooks";
+import { useApi, useCapabilities, useRole } from "@/components/hooks";
 import {
   BandBadge,
   Button,
@@ -285,6 +285,9 @@ export default function BuyerPropertyPage({ params }: { params: { id: string } }
   const [attempt, setAttempt] = React.useState<AttemptResult | null>(null);
   const [attemptError, setAttemptError] = React.useState<string | null>(null);
   const [attempting, setAttempting] = React.useState<string | null>(null);
+  const caps = useCapabilities();
+  const mayAttempt = caps.can("ATTEMPT_TRANSACTION");
+  const mayRequest = caps.can("REQUEST_CONSENT");
 
   const profile = profileQ.data;
   const property = profile?.property ?? propertyQ.data ?? null;
@@ -450,6 +453,7 @@ export default function BuyerPropertyPage({ params }: { params: { id: string } }
             label="Proceed to agreement"
             icon={<Handshake className="h-4 w-4" />}
             blocked={blocked}
+            permitted={mayAttempt}
             busy={attempting === "PROCEED_TO_AGREEMENT"}
             reason={property.transaction?.state_reason || meta.blurb}
             onClick={() => tryAction("PROCEED_TO_AGREEMENT")}
@@ -459,17 +463,24 @@ export default function BuyerPropertyPage({ params }: { params: { id: string } }
             label="Initiate payment"
             icon={<Wallet className="h-4 w-4" />}
             blocked={blocked}
+            permitted={mayAttempt}
             busy={attempting === "INITIATE_PAYMENT"}
             reason={property.transaction?.state_reason || meta.blurb}
             onClick={() => tryAction("INITIATE_PAYMENT")}
           />
-          <Button variant="secondary" onClick={() => setDrawerOpen(true)}>
+          <Button
+            variant="secondary"
+            onClick={() => setDrawerOpen(true)}
+            disabled={!mayRequest}
+            title={mayRequest ? undefined : caps.why("REQUEST_CONSENT")}
+          >
             <Unlock className="h-4 w-4" />
             Request owner access
           </Button>
           <p className="text-2xs leading-relaxed text-ink-subtle">
-            Blocked actions still call the server — the refusal, with its reason, is the
-            demonstration.
+            {mayAttempt
+              ? "Blocked actions still call the server — the refusal, with its reason, is the demonstration."
+              : caps.why("ATTEMPT_TRANSACTION")}
           </p>
         </div>
 
@@ -610,6 +621,7 @@ function ActionButton({
   label,
   icon,
   blocked,
+  permitted = true,
   busy,
   reason,
   onClick,
@@ -618,33 +630,38 @@ function ActionButton({
   label: string;
   icon: React.ReactNode;
   blocked: boolean;
+  /** False when the active role is not the party who performs this action at all. */
+  permitted?: boolean;
   busy: boolean;
   reason: string;
   onClick: () => void;
 }) {
   const button = (
     <button
-      onClick={onClick}
-      aria-disabled={blocked}
+      onClick={permitted ? onClick : undefined}
+      aria-disabled={blocked || !permitted}
+      disabled={!permitted}
       data-action={action}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition",
-        blocked
+        blocked || !permitted
           ? "cursor-not-allowed bg-canvas-sunken text-ink-subtle ring-1 ring-canvas-borderStrong"
           : "bg-navy-900 text-white hover:bg-navy-800",
         busy && "opacity-70",
       )}
     >
-      {blocked ? <Lock className="h-4 w-4" /> : icon}
+      {blocked || !permitted ? <Lock className="h-4 w-4" /> : icon}
       {label}
     </button>
   );
   return (
     <Tooltip
       content={
-        blocked
-          ? `Disabled in the current transaction state. ${reason} Selecting it anyway will show the server’s refusal.`
-          : "Permitted in the current state. This prototype never processes a payment."
+        !permitted
+          ? "The buyer is the party who attempts to progress a transaction. Switch to Buyer to see the state controller permit or refuse it."
+          : blocked
+            ? `Disabled in the current transaction state. ${reason} Selecting it anyway will show the server’s refusal.`
+            : "Permitted in the current state. This prototype never processes a payment."
       }
     >
       {button}

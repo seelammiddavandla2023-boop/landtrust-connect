@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import React from "react";
 
-import { useApi } from "@/components/hooks";
+import { useApi, useCapabilities } from "@/components/hooks";
 import {
   Button,
   Card,
@@ -74,6 +74,8 @@ export function ResolutionTab({
     [propertyId, version],
   );
   const [applying, setApplying] = React.useState<string | null>(null);
+  const caps = useCapabilities();
+  const mayApply = caps.can("APPLY_RESOLUTION");
   const [result, setResult] = React.useState<any>(null);
   const [simulated, setSimulated] = React.useState<Record<string, any>>({});
   const [selection, setSelection] = React.useState<string[]>([]);
@@ -339,11 +341,17 @@ export function ResolutionTab({
                               <FlaskConical className="h-3.5 w-3.5" />
                               Simulate
                             </Button>
-                            <Tooltip content="Ingests the corresponding evidence through the real pipeline and recomputes the whole assessment. The new score is computed, not written.">
+                            <Tooltip
+                              content={
+                                mayApply
+                                  ? "Ingests the corresponding evidence through the real pipeline and recomputes the whole assessment. The new score is computed, not written."
+                                  : caps.why("APPLY_RESOLUTION")
+                              }
+                            >
                               <Button
                                 size="sm"
                                 onClick={() => apply(s.action_key)}
-                                disabled={applying !== null}
+                                disabled={applying !== null || !mayApply}
                               >
                                 <Play className="h-3.5 w-3.5" />
                                 {applying === s.action_key ? "Applying…" : "Apply this step"}

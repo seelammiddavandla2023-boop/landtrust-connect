@@ -27,7 +27,7 @@ import {
 import Link from "next/link";
 import React from "react";
 
-import { useApi, useRole } from "@/components/hooks";
+import { useApi, useCapabilities, useRole } from "@/components/hooks";
 import {
   BandBadge,
   Button,
@@ -482,6 +482,8 @@ function RequestCard({
   const [selected, setSelected] = React.useState<string[]>(requestable.map((i) => i.item));
   const [note, setNote] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
+  const caps = useCapabilities();
+  const mayDecide = caps.can("DECIDE_CONSENT");
   const [error, setError] = React.useState<string | null>(null);
 
   const isOpen = r.status === "REQUESTED";
@@ -640,14 +642,14 @@ function RequestCard({
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Button onClick={() => decide("all")} disabled={busy !== null}>
+              <Button onClick={() => decide("all")} disabled={busy !== null || !mayDecide}>
                 <CheckCheck className="h-4 w-4" />
                 {busy === "all" ? "Approving…" : "Approve all"}
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => decide("selected")}
-                disabled={busy !== null || selected.length === 0}
+                disabled={busy !== null || selected.length === 0 || !mayDecide}
               >
                 <Unlock className="h-4 w-4" />
                 {busy === "selected" ? "Approving…" : `Approve selected (${selected.length})`}
@@ -655,12 +657,12 @@ function RequestCard({
               <Button
                 variant="secondary"
                 onClick={() => decide("timed")}
-                disabled={busy !== null || selected.length === 0}
+                disabled={busy !== null || selected.length === 0 || !mayDecide}
               >
                 <Timer className="h-4 w-4" />
                 {busy === "timed" ? "Approving…" : `Approve for ${hours} hours`}
               </Button>
-              <Button variant="danger" onClick={() => decide("deny")} disabled={busy !== null}>
+              <Button variant="danger" onClick={() => decide("deny")} disabled={busy !== null || !mayDecide}>
                 <X className="h-4 w-4" />
                 {busy === "deny" ? "Denying…" : "Deny"}
               </Button>
@@ -693,7 +695,7 @@ function RequestCard({
                 variant="danger"
                 size="sm"
                 onClick={revoke}
-                disabled={busy !== null}
+                disabled={busy !== null || !mayDecide}
               >
                 <Lock className="h-3.5 w-3.5" />
                 {busy === "revoke" ? "Revoking…" : "Revoke access"}

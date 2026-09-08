@@ -30,7 +30,7 @@ from ..models import (
     User,
 )
 from ..serializers import consent_out, message_out
-from ..services import audit, pipeline
+from ..services import authz, audit, pipeline
 from ..services.evidence_qa.answerer import SUGGESTED_QUESTIONS, answer
 from ..services.privacy import consent as consent_service
 from ..services.privacy.redaction import scan_message
@@ -115,6 +115,7 @@ def request_consent(
         select(Property).where((Property.id == payload.property_id) |
                                (Property.reference == payload.property_id))
     ).first()
+    authz.require(role, authz.Capability.REQUEST_CONSENT)
     if prop is None:
         raise HTTPException(404, "Property not found.")
     if user is None:
@@ -161,8 +162,7 @@ def decide_consent(
     req = db.get(ConsentRequest, request_id)
     if req is None:
         raise HTTPException(404, "Consent request not found.")
-    if role not in {Role.OWNER, Role.ADMIN}:
-        raise HTTPException(403, "Only the owner can decide an access request.")
+    authz.require(role, authz.Capability.DECIDE_CONSENT)
 
     consent_service.decide(req, payload.approve, payload.items, payload.time_limited,
                            payload.note)
@@ -195,8 +195,7 @@ def revoke_consent(
     req = db.get(ConsentRequest, request_id)
     if req is None:
         raise HTTPException(404, "Consent request not found.")
-    if role not in {Role.OWNER, Role.ADMIN}:
-        raise HTTPException(403, "Only the owner can revoke access.")
+    authz.require(role, authz.Capability.DECIDE_CONSENT)
     consent_service.revoke(req)
     audit.record(db, AuditAction.CONSENT_DENIED, property_id=req.property_id, actor_role=role,
                  actor_name="owner", result="REVOKED",

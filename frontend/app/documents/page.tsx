@@ -24,6 +24,7 @@ import {
   Info,
   Layers3,
   Loader2,
+  Lock,
   RotateCcw,
   ShieldAlert,
   Sparkles,
@@ -33,7 +34,7 @@ import {
 import React from "react";
 
 import { DocumentViewer } from "@/components/document-viewer";
-import { useApi, useQueryParam, useRole } from "@/components/hooks";
+import { useApi, useCapabilities, useQueryParam, useRole } from "@/components/hooks";
 import {
   BandBadge,
   Button,
@@ -151,6 +152,8 @@ const STAGE_LABEL: Record<string, string> = Object.fromEntries(
 export default function DocumentIntelligencePage() {
   const [propertyRef, setPropertyRef] = useQueryParam("property", "LTC-PR-0002");
   const [role] = useRole();
+  const caps = useCapabilities();
+  const mayUpload = caps.can("UPLOAD_EVIDENCE");
 
   const properties = useApi<{ items: any[] }>(() => endpoints.properties(), []);
   const modes = useApi<ModesPayload>(() => endpoints.documentModes(), []);
@@ -340,6 +343,21 @@ export default function DocumentIntelligencePage() {
                     sent with the request, so masking on the extracted claims below is decided by
                     the server, not the browser.
                   </p>
+                  {!mayUpload ? (
+                    <div className="mt-2.5 rounded-lg border border-status-partial/30 bg-status-partialBg px-3 py-2.5">
+                      <p className="text-2xs font-semibold uppercase tracking-[0.1em] text-status-partial">
+                        This role cannot add evidence
+                      </p>
+                      <p className="mt-1 text-2xs leading-relaxed text-ink-muted">
+                        {caps.why("UPLOAD_EVIDENCE")}
+                      </p>
+                      <p className="mt-1.5 text-2xs leading-relaxed text-ink-subtle">
+                        The library below is still readable — a buyer can see what evidence exists
+                        and what it establishes, which is the whole point. Switch to{" "}
+                        <span className="font-medium text-ink">Land Owner</span> to upload.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </Card>
@@ -363,14 +381,15 @@ export default function DocumentIntelligencePage() {
                   modeEntries.map(([key, info]) => (
                     <button
                       key={key}
-                      disabled={!info.available}
+                      disabled={!info.available || !mayUpload}
                       onClick={() => setMode(key)}
                       className={cn(
                         "w-full rounded-xl border px-3.5 py-3 text-left transition",
                         mode === key && info.available
                           ? "border-navy-500 bg-navy-50"
                           : "border-canvas-border hover:bg-canvas-sunken",
-                        !info.available && "cursor-not-allowed opacity-60 hover:bg-transparent",
+                        (!info.available || !mayUpload) &&
+                          "cursor-not-allowed opacity-60 hover:bg-transparent",
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -398,6 +417,8 @@ export default function DocumentIntelligencePage() {
               maxBytes={modes.data?.max_bytes ?? 0}
               busy={uploading}
               onFile={runUpload}
+              disabled={!mayUpload}
+              disabledReason={caps.why("UPLOAD_EVIDENCE")}
             />
 
             {uploadError ? (
@@ -547,36 +568,44 @@ function Dropzone({
   maxBytes,
   busy,
   onFile,
+  disabled = false,
+  disabledReason = "",
 }: {
   accepted: string[];
   maxBytes: number;
   busy: boolean;
   onFile: (file: File) => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const [over, setOver] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFiles = (files: FileList | null) => {
+    if (disabled) return;
     const file = files?.[0];
     if (file) onFile(file);
   };
+
+  const inert = busy || disabled;
 
   return (
     <div
       onDragOver={(e) => {
         e.preventDefault();
-        if (!busy) setOver(true);
+        if (!inert) setOver(true);
       }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         e.preventDefault();
         setOver(false);
-        if (!busy) handleFiles(e.dataTransfer.files);
+        if (!inert) handleFiles(e.dataTransfer.files);
       }}
       className={cn(
         "rounded-2xl border-2 border-dashed px-6 py-10 text-center transition",
         over ? "border-navy-500 bg-navy-50" : "border-canvas-borderStrong bg-canvas-raised",
         busy && "opacity-80",
+        disabled && "cursor-not-allowed bg-canvas-sunken opacity-70",
       )}
     >
       <input
@@ -589,25 +618,37 @@ function Dropzone({
           e.target.value = "";
         }}
       />
-      <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-navy-50 text-navy-700">
+      <div
+        className={cn(
+          "mx-auto grid h-12 w-12 place-items-center rounded-2xl",
+          disabled ? "bg-canvas-border text-ink-subtle" : "bg-navy-50 text-navy-700",
+        )}
+      >
         {busy ? (
           <Loader2 className="h-5 w-5 animate-spin" />
+        ) : disabled ? (
+          <Lock className="h-5 w-5" />
         ) : (
           <Upload className="h-5 w-5" />
         )}
       </div>
       <p className="mt-3 text-sm font-semibold text-ink">
-        {busy ? "Processing through the live pipeline…" : "Drop a document here"}
+        {busy
+          ? "Processing through the live pipeline…"
+          : disabled
+            ? "Adding evidence is the owner's action"
+            : "Drop a document here"}
       </p>
       <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-ink-muted">
-        The file is classified, read, and mined for claims by the same code path that produced
-        every other document on this platform. Nothing about the result is pre-scripted.
+        {disabled
+          ? disabledReason
+          : "The file is classified, read, and mined for claims by the same code path that produced every other document on this platform. Nothing about the result is pre-scripted."}
       </p>
       <Button
         variant="secondary"
         size="sm"
         className="mt-4"
-        disabled={busy}
+        disabled={inert}
         onClick={() => inputRef.current?.click()}
       >
         Choose a file

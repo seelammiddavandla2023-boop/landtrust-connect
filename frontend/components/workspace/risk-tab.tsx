@@ -23,7 +23,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { useApi } from "@/components/hooks";
+import { useApi, useCapabilities } from "@/components/hooks";
 import {
   BandBadge,
   Button,
@@ -64,6 +64,8 @@ export function RiskTab({
   );
   const [attempt, setAttempt] = React.useState<any>(null);
   const [busy, setBusy] = React.useState(false);
+  const caps = useCapabilities();
+  const mayAttempt = caps.can("ATTEMPT_TRANSACTION");
 
   if (error) return <ErrorState error={error} onRetry={refetch} />;
   if (loading || !risk) return <LoadingCard rows={10} title="Risk analysis" />;
@@ -251,15 +253,17 @@ export function RiskTab({
                 <Tooltip
                   key={action}
                   content={
-                    isBlocked
-                      ? "Blocked in the current state. Click anyway — the refusal is the demonstration."
-                      : "Permitted in the current state. No payment is processed by this prototype."
+                    !mayAttempt
+                      ? caps.why("ATTEMPT_TRANSACTION")
+                      : isBlocked
+                        ? "Blocked in the current state. Click anyway — the refusal is the demonstration."
+                        : "Permitted in the current state. No payment is processed by this prototype."
                   }
                 >
                   <Button
                     variant={isBlocked ? "subtle" : "secondary"}
                     size="sm"
-                    disabled={busy}
+                    disabled={busy || !mayAttempt}
                     onClick={() => tryAction(action)}
                     className={cn(isBlocked && "line-through decoration-status-conflicting/60")}
                   >

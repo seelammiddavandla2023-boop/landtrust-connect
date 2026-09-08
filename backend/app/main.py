@@ -24,6 +24,7 @@ from .config import settings
 from .db import SessionLocal, init_db
 from .domain import DISCLAIMER, Role
 from .models import Property
+from .services import authz
 
 
 @asynccontextmanager
@@ -106,4 +107,9 @@ def roles():
              "description": "Platform operations, demo control and the research dashboards."},
         ],
         "header": "X-Demo-Role",
+        # The capability table the routes actually enforce. Published so the
+        # interface can disable a control for exactly the reason the server
+        # would refuse it, instead of keeping a second copy of the rules that
+        # can drift out of step with these routes.
+        "capabilities": authz.matrix(),
     }

@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import React from "react";
 
-import { useApi, useQueryParam } from "@/components/hooks";
+import { useApi, useQueryParam, useCapabilities } from "@/components/hooks";
 import {
   BandBadge,
   Button,
@@ -139,6 +139,8 @@ function WorkspaceHeader({
   onReassess: () => void;
 }) {
   const [busy, setBusy] = React.useState(false);
+  const caps = useCapabilities();
+  const mayReassess = caps.can("REASSESS");
   const state = p.transaction_state as TransactionState;
 
   const reassess = async () => {
@@ -184,7 +186,17 @@ function WorkspaceHeader({
           <div className="flex flex-wrap items-center gap-2">
             {state ? <StateBadge state={state} size="lg" /> : null}
             {p.risk_band ? <BandBadge band={p.risk_band} /> : null}
-            <Button variant="secondary" size="sm" onClick={reassess} disabled={busy}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={reassess}
+              disabled={busy || !mayReassess}
+              title={
+                mayReassess
+                  ? "Recompute every claim, contradiction and score from the evidence currently on file."
+                  : caps.why("REASSESS")
+              }
+            >
               <Sparkles className={cn("h-3.5 w-3.5", busy && "animate-pulse")} />
               {busy ? "Re-running…" : "Re-run assessment"}
             </Button>
