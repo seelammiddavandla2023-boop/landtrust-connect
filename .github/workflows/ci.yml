@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend — tests and evaluation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # Enables the real-OCR path and the OCR arm of the evaluation harness. The
+      # suite passes without it; only the OCR comparison is skipped.
+      - name: Install Tesseract
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Generate the synthetic corpus
+        working-directory: backend
+        run: python -m app.seed.generate
+
+      - name: Seed the database through the real pipeline
+        working-directory: backend
+        run: python -m app.seed.seed --reset
+
+      - name: Run the test suite
+        working-directory: backend
+        run: python -m pytest tests/ -q
+
+      # The acceptance sequence prints its trace, so a failure in CI shows exactly
+      # where the demonstration stopped behaving.
+      - name: Review-2 acceptance sequence
+        working-directory: backend
+        run: python -m pytest tests/test_acceptance.py -q -s
+
+      - name: Evaluation harness
+        working-directory: backend
+        run: python -m app.eval.run_eval --ocr
+
+      - name: Upload computed metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics
+          path: data/metrics.json
+
+  frontend:
+    name: Frontend — typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build

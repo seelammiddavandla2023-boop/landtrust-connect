@@ -1,0 +1,31 @@
+# Render blueprint for the LandTrust Connect API.
+#
+# Deploy: https://dashboard.render.com/blueprints → New Blueprint Instance → pick this repo.
+# Render reads this file, builds backend/Dockerfile and serves the API.
+#
+# Free tier notes, both of which suit a demonstration:
+#   * No persistent disk. The database is rebuilt from the synthetic corpus on every
+#     cold start (see app/main.py lifespan), so the demo always begins in a known
+#     state and uploads made during a session are cleared when it sleeps.
+#   * The service sleeps after 15 minutes idle. The first request afterwards takes
+#     roughly 50 seconds while the container starts and re-seeds. Open the API's
+#     /api/health once a few minutes before a live demonstration to warm it.
+services:
+  - type: web
+    name: landtrust-connect-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: EXTRACTION_MODE
+        value: DEMO
+      # Locked to the deployed frontend once its URL is known. Until then "*" lets
+      # you test the API directly from a browser or curl.
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PYTHONUNBUFFERED
+        value: "1"

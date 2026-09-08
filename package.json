@@ -1,0 +1,23 @@
+{
+  "name": "landtrust-connect",
+  "version": "0.2.0",
+  "private": true,
+  "description": "LandTrust Connect — an AI-based evidence-gated land ownership verification, secure owner interaction and autonomous transaction risk resolution system (Review-2 research prototype).",
+  "scripts": {
+    "setup": "npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "python3 -m pip install -r backend/requirements.txt --break-system-packages",
+    "setup:frontend": "cd frontend && npm install",
+    "seed": "cd backend && python3 -m app.seed.generate && python3 -m app.seed.seed --reset",
+    "eval": "cd backend && python3 -m app.eval.run_eval",
+    "eval:ocr": "cd backend && python3 -m app.eval.run_eval --ocr",
+    "test": "cd backend && python3 -m pytest -q",
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "cd backend && python3 -m uvicorn app.main:app --reload --port 8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "concurrently -n api,web -c blue,green \"cd backend && python3 -m uvicorn app.main:app --port 8000\" \"cd frontend && npm run start\""
+  },
+  "devDependencies": {
+    "concurrently": "9.0.1"
+  }
+}

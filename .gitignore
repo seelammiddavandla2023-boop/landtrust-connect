@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.vercel/
+
+# Generated data — recreate with `npm run seed` and `npm run eval`
+data/landtrust.db
+data/storage/
+data/metrics.json
+data/synthetic/LTC-PR-*/
+data/synthetic/pending/
+data/synthetic/ground_truth.json
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

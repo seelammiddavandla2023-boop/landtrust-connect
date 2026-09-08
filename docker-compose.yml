@@ -1,0 +1,44 @@
+# One-command demonstration environment.
+#
+#   docker compose up --build
+#
+# API on :8000, UI on :3000. The API seeds itself on first start, so the corpus is
+# generated and processed through the real pipeline inside the container.
+services:
+  api:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # SQLite by default. To use PostgreSQL, uncomment the db service below and set:
+      # DATABASE_URL: postgresql+psycopg://landtrust:landtrust@db:5432/landtrust
+      EXTRACTION_MODE: DEMO
+      CORS_ORIGINS: "*"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Optional PostgreSQL. The schema is identical; no migration is required.
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: landtrust
+  #     POSTGRES_PASSWORD: landtrust
+  #     POSTGRES_DB: landtrust
+  #   ports: ["5432:5432"]
