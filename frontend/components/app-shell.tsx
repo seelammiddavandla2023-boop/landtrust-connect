@@ -296,6 +296,60 @@ function Sidebar({ pathname }: { pathname: string }) {
  * except by typing a URL. A projector or a half-width browser is exactly where
  * that would be discovered.
  */
+/**
+ * Role selection inside the drawer.
+ *
+ * The switcher lives in the header, which the drawer covers — so from the drawer
+ * there was no way back to it, and changing role meant closing the navigation to
+ * reach the control that decides what the navigation shows.
+ *
+ * Choosing here deliberately does not close the drawer: the role's own tools,
+ * listed immediately below, rewrite themselves as you pick. That is the clearest
+ * demonstration in the product that a role is a position with different work
+ * rather than a display setting.
+ */
+function DrawerRolePicker() {
+  const [role, setRole] = useRole();
+
+  return (
+    <div className="border-b border-canvas-border px-3 pb-4 pt-1">
+      <div className="section-label px-2.5 pb-1.5">Viewing as</div>
+      <ul className="space-y-0.5">
+        {ROLES.map((r) => {
+          const active = r.role === role;
+          return (
+            <li key={r.role}>
+              <button
+                type="button"
+                onClick={() => setRole(r.role as Role)}
+                aria-pressed={active}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium transition",
+                  active
+                    ? "bg-navy-50 text-navy-900"
+                    : "text-ink-muted hover:bg-canvas-sunken hover:text-ink",
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    active ? "bg-navy-900" : "bg-canvas-borderStrong",
+                  )}
+                />
+                {r.label}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="px-2.5 pt-2 text-2xs leading-relaxed text-ink-subtle">
+        Masking, consent and every action are enforced on the server, so this is a change of
+        position — not a change of view.
+      </p>
+    </div>
+  );
+}
+
 function MobileNav({ pathname }: { pathname: string }) {
   const [open, setOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -378,13 +432,16 @@ function MobileNav({ pathname }: { pathname: string }) {
                         <X className="h-4.5 w-4.5" strokeWidth={2} />
                       </button>
                     </div>
-                    <nav className="flex-1 overflow-y-auto px-3 pb-4">
-                      <NavList
-                        pathname={pathname}
-                        onNavigate={() => setOpen(false)}
-                        animateActive={false}
-                      />
-                    </nav>
+                    <div className="flex-1 overflow-y-auto">
+                      <DrawerRolePicker />
+                      <nav className="px-3 pb-4 pt-4">
+                        <NavList
+                          pathname={pathname}
+                          onNavigate={() => setOpen(false)}
+                          animateActive={false}
+                        />
+                      </nav>
+                    </div>
                     <BuildFootnote />
                   </motion.div>
                 </div>
