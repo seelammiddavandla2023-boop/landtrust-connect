@@ -131,7 +131,9 @@ can only speak from records the reasoning layer produced.
 
 ## Quick start
 
-**Requirements:** Python 3.11+, Node 18+. Optional: `tesseract-ocr` for the real-OCR path.
+**Requirements:** Python 3.10+, Node 18+. Optional: `tesseract-ocr` for the real-OCR path.
+The npm scripts resolve the interpreter themselves (`py -3` / `python` / `python3`), so the
+same commands work on Windows, macOS and Linux.
 No API keys. No external services. Works offline.
 
 ```bash
