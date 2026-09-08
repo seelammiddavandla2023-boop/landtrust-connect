@@ -18,16 +18,47 @@ COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend ./backend
-# The synthetic corpus and the database live here. On a host with a persistent disk,
-# mount it at /app/data to keep uploads between restarts; without one the application
-# regenerates the corpus and re-seeds on each cold start, which is the behaviour the
-# demonstration wants anyway.
 RUN mkdir -p /app/data
 
 WORKDIR /app/backend
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     EXTRACTION_MODE=DEMO
+
+# Set to 1 to include the OCR arm of the evaluation in the image. It rasterises every
+# page and runs Tesseract over it, which takes several minutes on a small build machine
+# — worth it when the deployed Research Results page is the thing being presented,
+# not worth it on an ordinary deploy. CI runs the OCR arm on every push regardless, so
+# the figure is verified continuously whether or not it is baked in here.
+ARG EVAL_OCR=0
+
+# Build the demonstration state into the image rather than at boot.
+#
+#  1. Render the synthetic corpus (deterministic, ~3 s).
+#  2. Run the evaluation against a THROWAWAY database. The harness asks the assistant
+#     questions and recomputes risk, which writes rows; letting it touch the database
+#     the demo will serve would mean the reviewer sees a file the evaluation had
+#     already poked at. Only data/metrics.json survives this step.
+#  3. Seed the database the application actually serves, from scratch.
+#
+# The upshot: a cold start finds a populated database and an evaluation already run, so
+# it boots in seconds and /research shows real computed numbers instead of its empty
+# state. Without a mounted disk the container's copy is reset on each restart, which is
+# what the demonstration wants anyway — it always begins from the same known state.
+RUN set -eux; \
+    python -m app.seed.generate; \
+    EVAL_DB="sqlite:////tmp/eval.db"; \
+    DATABASE_URL="$EVAL_DB" python -m app.seed.seed --reset; \
+    if [ "$EVAL_OCR" = "1" ]; then \
+        DATABASE_URL="$EVAL_DB" python -m app.eval.run_eval --ocr; \
+    else \
+        DATABASE_URL="$EVAL_DB" python -m app.eval.run_eval; \
+    fi; \
+    rm -f /tmp/eval.db; \
+    python -m app.seed.seed --reset; \
+    test -s /app/data/metrics.json; \
+    test -s /app/data/landtrust.db
 
 EXPOSE 8000
 

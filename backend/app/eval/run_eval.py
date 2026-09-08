@@ -103,6 +103,22 @@ def run(with_ocr: bool = False) -> dict:
 
     if with_ocr:
         results["ocr_arm"] = _evaluate_ocr_arm(ground_truth)
+    else:
+        # Say why the arm is missing rather than leaving the key absent. A consumer
+        # that finds no `ocr_arm` cannot tell "Tesseract was not installed" from
+        # "nobody passed --ocr", and guessing the first is a false statement about
+        # the machine whenever the second is true.
+        results["ocr_arm"] = {
+            "available": False,
+            "reason": (
+                "The OCR arm was not requested for this run. It rasterises every page "
+                "and reads it with Tesseract, which takes minutes rather than seconds, "
+                "so it is opt-in. Run `python -m app.eval.run_eval --ocr` (or "
+                "`npm run eval:ocr`) to compute it. Every other figure on this page is "
+                "unaffected, but without it the extraction figure measures the field "
+                "grammar against a lossless text layer rather than measuring a reader."
+            ),
+        }
 
     results["meta"] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

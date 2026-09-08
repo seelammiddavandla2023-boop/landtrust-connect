@@ -67,16 +67,40 @@ You should get `{"status":"ok",...}` with `extraction_backends` showing both `DE
 
 Environment variables: `EXTRACTION_MODE=DEMO`, `CORS_ORIGINS=*` (tightened in step 3).
 
+### What is baked into the image
+
+The Dockerfile renders the synthetic corpus, runs the evaluation harness and seeds the
+database **at build time**, not at boot. Three consequences worth knowing:
+
+- A cold start finds a populated database, so it boots in seconds rather than re-seeding.
+- `/research` shows real computed figures on the deployed instance. Without this it shows
+  its empty state, because `data/metrics.json` is generated and therefore gitignored.
+- The evaluation runs against a **throwaway** database that is deleted afterwards; the
+  database the demo serves is seeded fresh. The harness asks the assistant questions and
+  recomputes risk, so letting it touch the served database would mean a reviewer sees a
+  file the evaluation had already poked at.
+
+The **OCR arm is opt-in**, because rasterising every page and reading it with Tesseract
+takes minutes on a small build machine. To include it:
+
+| Setting | Value |
+|---|---|
+| Docker build argument | `EVAL_OCR=1` |
+
+Without it, `/research` states plainly that the arm was not requested and how to run it —
+it does not claim Tesseract was missing, which would be false on this image. CI runs the
+OCR arm on every push regardless, and uploads `metrics.json` as an artefact, so the
+figure is verified continuously either way.
+
 ### What the free tier means here
 
-- **No persistent disk.** The database is rebuilt from the synthetic corpus on every cold
-  start — `app/main.py`'s lifespan seeds an empty database automatically. For a
-  demonstration this is a feature: the demo always begins in a known state, and anything
-  you uploaded while exploring is cleared when the service sleeps.
+- **No persistent disk.** The container's copy of `/app/data` is reset on each restart, so
+  anything you uploaded while exploring is cleared when the service sleeps and the demo
+  always begins from the same known state.
 - **Sleeps after 15 minutes idle**, and the next request takes ~50 seconds while the
-  container starts and re-seeds. **Open `/api/health` a few minutes before a live
-  demonstration** so the first click in the UI is instant. The frontend shows a specific
-  "the API may be waking from sleep" message if it times out, rather than a generic error.
+  container starts. **Open `/api/health` a few minutes before a live demonstration** so
+  the first click in the UI is instant. The frontend shows a specific "the API may be
+  waking from sleep" message if it times out, rather than a generic error.
 
 To remove both limitations, upgrade to a paid instance and add a disk mounted at
 `/app/data`. Nothing in the code changes.
