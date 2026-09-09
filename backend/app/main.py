@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from .api import (
     routes_control,
+    routes_desk,
     routes_documents,
     routes_interaction,
     routes_platform,
@@ -71,6 +72,7 @@ app.include_router(routes_documents.router)
 app.include_router(routes_interaction.router)
 app.include_router(routes_control.router)
 app.include_router(routes_platform.router)
+app.include_router(routes_desk.router)
 
 
 @app.get("/api/health", tags=["platform"])

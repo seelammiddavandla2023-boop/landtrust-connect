@@ -48,6 +48,9 @@ class Capability:
     SEND_MESSAGE = "SEND_MESSAGE"
     ASK_ASSISTANT = "ASK_ASSISTANT"
     RESET_DEMO = "RESET_DEMO"
+    RECORD_FINDING = "RECORD_FINDING"
+    SUPERVISE_DESK = "SUPERVISE_DESK"
+    PLATFORM_OVERSIGHT = "PLATFORM_OVERSIGHT"
 
 
 #: capability -> the roles permitted to exercise it.
@@ -74,6 +77,13 @@ CAPABILITIES: dict[str, set[Role]] = {
     Capability.SEND_MESSAGE: set(Role),
     Capability.ASK_ASSISTANT: set(Role),
     Capability.RESET_DEMO: {Role.ADMIN},
+    # A verifier examines the documents the pipeline flagged and records what the
+    # original showed. That is evidence about a document, never a status: the
+    # resolver still decides what the evidence set supports.
+    Capability.RECORD_FINDING: {Role.VERIFIER, Role.ADMIN},
+    # The legal reviewer supervises the desk and owns escalated cases.
+    Capability.SUPERVISE_DESK: {Role.LEGAL_REVIEWER, Role.ADMIN},
+    Capability.PLATFORM_OVERSIGHT: {Role.ADMIN},
 }
 
 #: Why each capability is restricted, in the words the user is shown when a
@@ -106,6 +116,17 @@ REASONS: dict[str, str] = {
     ),
     Capability.RESET_DEMO: (
         "Rebuilding the demonstration database is an administrator action."
+    ),
+    Capability.RECORD_FINDING: (
+        "Examining a flagged document is the verifier's work. Switch to Verifier to open "
+        "the verification desk."
+    ),
+    Capability.SUPERVISE_DESK: (
+        "The desk and the escalation queue belong to the legal reviewer who supervises the "
+        "verifiers. Switch to Legal Reviewer."
+    ),
+    Capability.PLATFORM_OVERSIGHT: (
+        "The platform-wide overview is the administrator's view."
     ),
 }
 

@@ -558,3 +558,80 @@ DISCLAIMER = (
     "Research prototype — decision-support only. LandTrust Connect does not replace "
     "official land records, registrar verification or legal advice."
 )
+
+# ---------------------------------------------------------------------------
+# The human side of verification.
+#
+# The platform derives a claim's status from evidence and always will. These
+# enums describe the work people do *around* that: who is responsible for a
+# property, what a verifier can establish that the file cannot, and what a legal
+# reviewer decides about a case the machine deliberately refused to decide.
+
+
+class AssignmentStatus(StrEnum):
+    ASSIGNED = "ASSIGNED"
+    IN_REVIEW = "IN_REVIEW"
+    COMPLETED = "COMPLETED"
+    ESCALATED = "ESCALATED"
+
+
+ASSIGNMENT_STATUS_LABELS = {
+    AssignmentStatus.ASSIGNED.value: "Awaiting review",
+    AssignmentStatus.IN_REVIEW.value: "Under review",
+    AssignmentStatus.COMPLETED.value: "Signed off",
+    AssignmentStatus.ESCALATED.value: "Escalated to legal",
+}
+
+
+class FindingOutcome(StrEnum):
+    """
+    What a verifier can establish by examining the original document.
+
+    Each of these is a statement about the *document*, never about whether a
+    claim is true. The resolver decides that, from the whole evidence set.
+    """
+
+    CONSISTENT_WITH_ORIGINAL = "CONSISTENT_WITH_ORIGINAL"
+    CONFIRMED_ALTERED = "CONFIRMED_ALTERED"
+    ORIGINAL_UNAVAILABLE = "ORIGINAL_UNAVAILABLE"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+FINDING_OUTCOME_LABELS = {
+    FindingOutcome.CONSISTENT_WITH_ORIGINAL.value:
+        "Examined — consistent with the issuing office's copy",
+    FindingOutcome.CONFIRMED_ALTERED.value:
+        "Examined — differs from the issuing office's copy",
+    FindingOutcome.ORIGINAL_UNAVAILABLE.value:
+        "The issuing office could not produce an original",
+    FindingOutcome.INCONCLUSIVE.value:
+        "Examined — could not be established either way",
+}
+
+#: Which outcomes agree with the platform having raised an integrity indicator.
+#: A verifier who confirms an alteration agrees with the machine; one who finds
+#: the document clean disagrees with it. Neither is punished — the point of the
+#: figure is to show a supervisor where human and automated judgement diverge.
+FINDING_CONFIRMS_INDICATOR = {
+    FindingOutcome.CONFIRMED_ALTERED.value: True,
+    FindingOutcome.CONSISTENT_WITH_ORIGINAL.value: False,
+}
+
+
+class EscalationOutcome(StrEnum):
+    RELEASED_TO_PROCEED = "RELEASED_TO_PROCEED"
+    REFERRED_TO_REGISTRAR = "REFERRED_TO_REGISTRAR"
+    REFUSED = "REFUSED"
+    AWAITING_EVIDENCE = "AWAITING_EVIDENCE"
+
+
+ESCALATION_OUTCOME_LABELS = {
+    EscalationOutcome.RELEASED_TO_PROCEED.value:
+        "Authority established — released for normal diligence",
+    EscalationOutcome.REFERRED_TO_REGISTRAR.value:
+        "Referred to the sub-registrar for official confirmation",
+    EscalationOutcome.REFUSED.value:
+        "Refused — the file cannot support a transaction",
+    EscalationOutcome.AWAITING_EVIDENCE.value:
+        "Held pending specific evidence requested from the owner",
+}

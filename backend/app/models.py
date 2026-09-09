@@ -460,3 +460,98 @@ class AssistantQuery(Base):
     evidence_refs: Mapped[list] = mapped_column(JSON, default=list)
     backend: Mapped[str] = mapped_column(String(32), default="deterministic")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+class VerificationAssignment(Base, TimestampMixin):
+    """
+    A property placed on a named verifier's desk.
+
+    The platform derives a verification *status* from evidence, and nothing here
+    changes that. What an assignment adds is accountability for the human work
+    around it: who onboarded this property, who is responsible for examining the
+    documents the machine flagged, and whether that examination has happened.
+
+    `onboarded_by_verifier` records that this verifier brought the property onto
+    the platform, which is a different contribution from reviewing it and is
+    counted separately in the supervisor's figures.
+    """
+
+    __tablename__ = "verification_assignments"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), index=True)
+    verifier_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="ASSIGNED", index=True)
+    onboarded_by_verifier: Mapped[bool] = mapped_column(Boolean, default=False)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # The transaction state when the verifier signed the property off. Comparing
+    # it with the state now is how "did their sign-off hold up?" is measured.
+    state_at_signoff: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    risk_at_signoff: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    property: Mapped["Property"] = relationship()
+    verifier: Mapped["User"] = relationship()
+
+
+class VerifierFinding(Base):
+    """
+    A verifier's recorded examination of a flagged document.
+
+    This is deliberately **evidence, not approval**. A verifier does not decide
+    that a claim is verified — the resolver does that from the evidence set. What
+    a verifier can establish is a fact the platform cannot compute from the file
+    alone: whether the physical document matches the original held by the issuing
+    office. That fact then feeds the same machinery as any other evidence.
+
+    An `agrees_with_platform` value is stored at write time by comparing the
+    finding with the integrity indicators the pipeline computed. It is the basis
+    of the accuracy figure a supervisor sees, and it is recorded rather than
+    recomputed so that a later change to the rules cannot silently rewrite a
+    person's record.
+    """
+
+    __tablename__ = "verifier_findings"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    assignment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("verification_assignments.id"), nullable=True, index=True)
+    property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), index=True)
+    verifier_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("documents.id"), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(48))
+    note: Mapped[str] = mapped_column(Text, default="")
+    agrees_with_platform: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+    property: Mapped["Property"] = relationship()
+    document: Mapped["Document"] = relationship()
+    verifier: Mapped["User"] = relationship()
+
+
+class EscalationDetermination(Base):
+    """
+    A legal reviewer's decision on a case the platform refused to decide.
+
+    The state controller escalates rather than guessing when seller authority
+    cannot be established. Until now that escalation had no destination: the case
+    said "refer to a legal reviewer" and nothing further happened. This is where
+    it lands, and the determination is recorded with its reasoning in the audit
+    trail rather than silently changing a score.
+    """
+
+    __tablename__ = "escalation_determinations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), index=True)
+    reviewer_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    outcome: Mapped[str] = mapped_column(String(48))
+    reasoning: Mapped[str] = mapped_column(Text, default="")
+    state_at_review: Mapped[str] = mapped_column(String(32), default="")
+    risk_at_review: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+    property: Mapped["Property"] = relationship()
+    reviewer: Mapped["User"] = relationship()

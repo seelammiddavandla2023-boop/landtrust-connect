@@ -8,6 +8,7 @@ import {
   FlaskConical,
   GitCompareArrows,
   LayoutDashboard,
+  ClipboardCheck,
   Layers3,
   type LucideIcon,
   Menu,
@@ -40,6 +41,7 @@ const NAV: NavGroup[] = [
       { href: "/properties", label: "Properties", icon: Building2 },
       { href: "/documents", label: "Document Intelligence", icon: FileSearch },
       { href: "/assistant", label: "Evidence Assistant", icon: Sparkles },
+      { href: "/desk", label: "Verification Desk", icon: ClipboardCheck },
     ],
   },
   {
@@ -86,25 +88,25 @@ const ROLE_TOOLS: Record<Role, { note: string; items: NavItem[] }> = {
     ],
   },
   VERIFIER: {
-    note: "Unmasked claims, contradictions and integrity indicators.",
+    note: "Examine the documents the pipeline flagged and record what the original showed.",
     items: [
+      { href: "/desk", label: "My verification desk", icon: ClipboardCheck },
       { href: "/properties", label: "Examine a file", icon: Building2 },
-      { href: "/documents", label: "Document intelligence", icon: FileSearch },
     ],
   },
   LEGAL_REVIEWER: {
-    note: "Escalated cases and the complete audit trail.",
+    note: "Supervise the verifiers and decide the cases the platform refused to decide.",
     items: [
+      { href: "/desk", label: "My desk and escalations", icon: ClipboardCheck },
       { href: "/properties", label: "Escalated files", icon: Building2 },
-      { href: "/dashboard", label: "Platform overview", icon: LayoutDashboard },
     ],
   },
   ADMIN: {
     note: "Demo control and the research dashboards.",
     items: [
+      { href: "/desk", label: "Estate and desk overview", icon: ClipboardCheck },
       { href: "/presentation", label: "Presentation mode", icon: Presentation },
       { href: "/research", label: "Research results", icon: FlaskConical },
-      { href: "/dashboard", label: "Platform overview", icon: LayoutDashboard },
     ],
   },
 };

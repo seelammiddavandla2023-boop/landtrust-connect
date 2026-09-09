@@ -174,4 +174,24 @@ export const endpoints = {
   researchGap: () => api.get<any>("/api/research/gap"),
   architecture: () => api.get<any>("/api/research/architecture"),
   globalAudit: (query = "") => api.get<any>(`/api/audit${query}`),
+
+  // The verification desk: a verifier's queue, the supervisor's team view and
+  // escalation queue, and the head's estate-wide overview.
+  deskQueue: () => api.get<any>("/api/desk/queue"),
+  recordFinding: (body: {
+    property_id: string;
+    document_id: string | null;
+    outcome: string;
+    note: string;
+  }) => api.post<any>("/api/desk/findings", body),
+  signOff: (assignmentId: string) =>
+    api.post<any>(`/api/desk/assignments/${assignmentId}/sign-off`),
+  deskTeam: () => api.get<any>("/api/desk/team"),
+  deskEscalations: () => api.get<any>("/api/desk/escalations"),
+  recordDetermination: (body: {
+    property_id: string;
+    outcome: string;
+    reasoning: string;
+  }) => api.post<any>("/api/desk/escalations/determination", body),
+  deskOverview: () => api.get<any>("/api/desk/overview"),
 };
