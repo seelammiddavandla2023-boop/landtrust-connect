@@ -31,6 +31,7 @@ from ..domain import (
     Role,
 )
 from ..models import (
+    Document,
     EscalationDetermination,
     Property,
     RiskAssessment,
@@ -47,6 +48,40 @@ router = APIRouter(prefix="/api", tags=["desk"])
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+
+def _seller_of(db: Session, prop: Property) -> dict:
+    """The party who listed the property, as the verifier needs to see them."""
+    owner = db.get(User, prop.owner_id) if prop.owner_id else None
+    return {
+        "listed_owner_name": prop.listed_owner_name,
+        "account_name": owner.name if owner else None,
+        "email": owner.email if owner else None,
+        "phone": owner.phone if owner else None,
+        "organisation": owner.organisation if owner else None,
+        "note": (
+            "The listed name is what the seller asserts. It is held separately from any "
+            "owner name the documents establish, which is what allows the two to be "
+            "compared."
+        ),
+    }
+
+
+def _latest_upload(db: Session, property_id: str) -> dict | None:
+    doc = db.scalars(
+        select(Document)
+        .where(Document.property_id == property_id)
+        .order_by(Document.created_at.desc())
+    ).first()
+    if doc is None:
+        return None
+    return {
+        "filename": doc.filename,
+        "doc_type": doc.doc_type,
+        "uploaded_by_role": doc.uploaded_by_role,
+        "created_at": doc.created_at,
+    }
 
 
 # --------------------------------------------------------------- the verifier
@@ -103,7 +138,17 @@ def my_queue(
                 "village": prop.village,
                 "district": prop.district,
                 "scenario_label": prop.scenario_label,
+                "claimed_area_sqft": prop.claimed_area_sqft,
+                "asking_price_inr": prop.asking_price_inr,
             },
+            # Who put this file on the platform, and what the listing asserts.
+            # A verifier examining a document needs to know who supplied it, and
+            # the listed name is deliberately shown as a claim rather than a fact:
+            # it is exactly the value an impersonation would falsify.
+            "seller": _seller_of(db, prop),
+            "documents_on_file": len(db.scalars(
+                select(Document).where(Document.property_id == prop.id)).all()),
+            "latest_upload": _latest_upload(db, prop.id),
             "transaction_state": txn.state if txn else None,
             "risk_score": round(assessment.overall_score, 1) if assessment else None,
             "risk_band": assessment.band if assessment else None,

@@ -177,6 +177,9 @@ export const endpoints = {
 
   // The verification desk: a verifier's queue, the supervisor's team view and
   // escalation queue, and the head's estate-wide overview.
+  notifications: () => api.get<any>("/api/notifications"),
+  createProperty: (body: Record<string, unknown>) =>
+    api.post<any>("/api/properties", body),
   deskQueue: () => api.get<any>("/api/desk/queue"),
   recordFinding: (body: {
     property_id: string;

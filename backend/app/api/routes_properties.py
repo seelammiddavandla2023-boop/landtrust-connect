@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,8 @@ from ..db import get_db
 from ..domain import (
     CLAIM_TYPE_LABELS,
     CORE_CLAIM_TYPES,
+    AssignmentStatus,
+    AuditAction,
     ClaimType,
     Role,
     VerificationStatus,
@@ -25,6 +28,8 @@ from ..models import (
     RiskAssessment,
     RiskFactor,
     Transaction,
+    User,
+    VerificationAssignment,
 )
 from ..serializers import (
     assessment_out,
@@ -36,11 +41,11 @@ from ..serializers import (
     resolution_out,
     transaction_out,
 )
-from ..services import authz, pipeline
+from ..services import audit, authz, pipeline
 from ..services.graph.builder import get_graph_store
 from ..services.privacy import consent as consent_service
 from ..services.verification import temporal
-from .deps import current_role, get_property, granted_items
+from .deps import current_role, current_user, get_property, granted_items
 
 router = APIRouter(prefix="/api/properties", tags=["properties"])
 
@@ -438,3 +443,108 @@ def reassess(
     factors = db.scalars(
         select(RiskFactor).where(RiskFactor.assessment_id == assessment.id)).all()
     return assessment_out(assessment, list(factors))
+
+
+class PropertyCreate(BaseModel):
+    survey_number: str = Field(min_length=1, max_length=64)
+    district: str = Field(min_length=1, max_length=120)
+    village: str = Field(min_length=1, max_length=120)
+    property_type: str = Field(default="Residential Plot", max_length=120)
+    claimed_area_sqft: float = Field(gt=0)
+    guideline_value_inr: float = Field(ge=0, default=0)
+    asking_price_inr: float = Field(ge=0, default=0)
+    listed_owner_name: str = Field(min_length=1, max_length=200)
+
+
+@router.post("")
+def create_property(
+    payload: PropertyCreate,
+    db: Session = Depends(get_db),
+    role: Role = Depends(current_role),
+    user: User | None = Depends(current_user),
+):
+    """
+    List a property for sale.
+
+    The listing asserts nothing. `listed_owner_name` is stored as what the *seller
+    claims*, deliberately separate from any owner name the documents establish —
+    that separation is what lets the platform detect an impersonation later, so a
+    new listing starts with every core claim PENDING and a transaction that
+    cannot progress until evidence arrives.
+
+    The property is put straight onto a verifier's desk, and the verifier with the
+    lightest load takes it. Nobody has to remember to assign it, and a file with
+    nobody accountable for it is the failure this avoids.
+    """
+    authz.require(role, authz.Capability.LIST_PROPERTY)
+    if user is None:
+        raise HTTPException(400, "No demo user is configured for this role.")
+
+    existing = db.scalars(select(Property).order_by(Property.reference.desc())).first()
+    next_number = 1
+    if existing and existing.reference.startswith("LTC-PR-"):
+        try:
+            next_number = int(existing.reference.split("-")[-1]) + 1
+        except ValueError:
+            next_number = len(db.scalars(select(Property)).all()) + 1
+
+    prop = Property(
+        reference=f"LTC-PR-{next_number:04d}",
+        survey_number=payload.survey_number,
+        district=payload.district,
+        village=payload.village,
+        property_type=payload.property_type,
+        claimed_area_sqft=payload.claimed_area_sqft,
+        guideline_value_inr=payload.guideline_value_inr or None,
+        asking_price_inr=payload.asking_price_inr or None,
+        listed_owner_name=payload.listed_owner_name,
+        owner_id=user.id,
+        scenario_key="owner_listed",
+        scenario_label="Listed by the owner",
+        is_demo=False,
+    )
+    db.add(prop)
+    db.flush()
+
+    # Assign to the verifier carrying the fewest properties, so the desk stays even.
+    verifiers = db.scalars(
+        select(User).where(User.role == Role.VERIFIER.value).order_by(User.name)
+    ).all()
+    assigned_to = None
+    if verifiers:
+        loads = {v.id: 0 for v in verifiers}
+        for a in db.scalars(select(VerificationAssignment)).all():
+            if a.verifier_id in loads:
+                loads[a.verifier_id] += 1
+        chosen = min(verifiers, key=lambda v: loads[v.id])
+        db.add(VerificationAssignment(
+            property_id=prop.id,
+            verifier_id=chosen.id,
+            status=AssignmentStatus.ASSIGNED.value,
+            onboarded_by_verifier=False,
+        ))
+        assigned_to = {"id": chosen.id, "name": chosen.name}
+
+    # Derive the opening position from an empty evidence set, rather than leaving
+    # the property without a transaction until somebody uploads something.
+    pipeline.reassess(db, prop, actor_role=role, actor_name=user.name,
+                      reason="Property listed by the owner")
+
+    audit.record(
+        db, AuditAction.DOCUMENT_UPLOADED, property_id=prop.id, actor_role=role,
+        actor_name=user.name, result="LISTED",
+        summary=f"Property {prop.reference} listed by the owner. "
+                f"Nothing is verified until evidence is supplied.",
+        payload={"assigned_verifier": assigned_to},
+        commit=True,
+    )
+    return {
+        "reference": prop.reference,
+        "id": prop.id,
+        "assigned_verifier": assigned_to,
+        "notice": (
+            "The listing is recorded as a claim by the seller, not as fact. Every core "
+            "detail starts at PENDING and the transaction cannot progress until documents "
+            "support it. Upload evidence from Document Intelligence."
+        ),
+    }

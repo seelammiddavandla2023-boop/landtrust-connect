@@ -229,6 +229,20 @@ def list_messages(
         select(Message).where(Message.property_id == prop.id).order_by(Message.created_at)
     ).all()
     users = {u.id: u for u in db.scalars(select(User)).all()}
+
+    # Opening the thread is what marks it read — for this role only, and only for
+    # messages this role did not send.
+    changed = False
+    for m in rows:
+        if m.sender_role == role.value:
+            continue
+        seen = list(m.read_by or [])
+        if role.value not in seen:
+            m.read_by = seen + [role.value]
+            changed = True
+    if changed:
+        db.commit()
+
     return {
         "count": len(rows),
         "items": [message_out(m, role, users) for m in rows],
@@ -379,4 +393,55 @@ def assistant_log(property_id: str | None = None, db: Session = Depends(get_db),
             }
             for r in rows
         ],
+    }
+
+
+@router.get("/notifications")
+def notifications(
+    db: Session = Depends(get_db),
+    role: Role = Depends(current_role),
+):
+    """
+    Unread relay messages for the active role, grouped by property.
+
+    A message is unread for a role when that role did not send it and has not
+    opened the thread since it arrived. Grouping by property is the point: an
+    owner with six listings needs to know *which* file the enquiry is about, not
+    that something somewhere is waiting.
+    """
+    rows = db.scalars(select(Message).order_by(Message.created_at.desc())).all()
+    props = {p.id: p for p in db.scalars(select(Property)).all()}
+
+    by_property: dict[str, dict] = {}
+    for m in rows:
+        if m.sender_role == role.value:
+            continue
+        if role.value in (m.read_by or []):
+            continue
+        prop = props.get(m.property_id)
+        if prop is None:
+            continue
+        entry = by_property.setdefault(prop.id, {
+            "property_id": prop.id,
+            "reference": prop.reference,
+            "survey_number": prop.survey_number,
+            "village": prop.village,
+            "district": prop.district,
+            "scenario_label": prop.scenario_label,
+            "unread": 0,
+            "latest_from": m.sender_role,
+            "latest_at": m.created_at,
+            "preview": (m.redacted_body or m.body)[:140],
+        })
+        entry["unread"] += 1
+
+    items = sorted(by_property.values(), key=lambda e: e["latest_at"], reverse=True)
+    return {
+        "unread_total": sum(e["unread"] for e in items),
+        "properties": items,
+        "note": (
+            "A message counts as unread until the role it was sent to opens that property's "
+            "relay. Sender and recipient are tracked separately, so an owner reading a thread "
+            "does not clear it for the buyer."
+        ),
     }

@@ -339,6 +339,11 @@ class Message(Base):
     sensitive_kinds: Mapped[list] = mapped_column(JSON, default=list)
     references_claim_id: Mapped[str | None] = mapped_column(ForeignKey("claims.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # Roles that have opened the thread since this message arrived. A list rather
+    # than a single flag because the same message is unread for the owner and the
+    # buyer independently, and a relay with more than two parties on it should not
+    # need a schema change.
+    read_by: Mapped[list] = mapped_column(JSON, default=list)
 
 
 # ---------------------------------------------------------------------------

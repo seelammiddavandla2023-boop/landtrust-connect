@@ -48,6 +48,7 @@ class Capability:
     SEND_MESSAGE = "SEND_MESSAGE"
     ASK_ASSISTANT = "ASK_ASSISTANT"
     RESET_DEMO = "RESET_DEMO"
+    LIST_PROPERTY = "LIST_PROPERTY"
     RECORD_FINDING = "RECORD_FINDING"
     SUPERVISE_DESK = "SUPERVISE_DESK"
     PLATFORM_OVERSIGHT = "PLATFORM_OVERSIGHT"
@@ -80,6 +81,8 @@ CAPABILITIES: dict[str, set[Role]] = {
     # A verifier examines the documents the pipeline flagged and records what the
     # original showed. That is evidence about a document, never a status: the
     # resolver still decides what the evidence set supports.
+    # Listing a property for sale is the owner's act, like adding evidence to it.
+    Capability.LIST_PROPERTY: {Role.OWNER, Role.ADMIN},
     Capability.RECORD_FINDING: {Role.VERIFIER, Role.ADMIN},
     # The legal reviewer supervises the desk and owns escalated cases.
     Capability.SUPERVISE_DESK: {Role.LEGAL_REVIEWER, Role.ADMIN},
@@ -116,6 +119,9 @@ REASONS: dict[str, str] = {
     ),
     Capability.RESET_DEMO: (
         "Rebuilding the demonstration database is an administrator action."
+    ),
+    Capability.LIST_PROPERTY: (
+        "Listing a property for sale is the owner's act. Switch to Land Owner to add one."
     ),
     Capability.RECORD_FINDING: (
         "Examining a flagged document is the verifier's work. Switch to Verifier to open "

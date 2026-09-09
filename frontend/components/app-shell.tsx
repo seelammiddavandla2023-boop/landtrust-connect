@@ -27,6 +27,7 @@ import { createPortal } from "react-dom";
 
 import { useRole } from "@/components/hooks";
 import { PrototypeBadge } from "@/components/ui";
+import { endpoints } from "@/lib/api";
 import { ROLES, type Role } from "@/lib/domain";
 import { cn } from "@/lib/format";
 
@@ -157,6 +158,48 @@ function Wordmark() {
   );
 }
 
+
+/**
+ * Where a role's unread relay messages are read.
+ *
+ * An owner reads them in the owner portal; everyone else reads them on the buyer
+ * profile, which is where the relay lives. Returning the route rather than a
+ * boolean keeps the badge attached to the link that actually clears it.
+ */
+function unreadHref(role: Role): string {
+  return role === "OWNER" ? "/owner" : "/buyer";
+}
+
+/** Unread relay messages for the active role, polled while the tab is open. */
+function useUnread(): number {
+  const [role] = useRole();
+  const [count, setCount] = React.useState(0);
+  const pathname = usePathname();
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      endpoints
+        .notifications()
+        .then((r: any) => {
+          if (!cancelled) setCount(r?.unread_total ?? 0);
+        })
+        .catch(() => {
+          if (!cancelled) setCount(0);
+        });
+    load();
+    // Re-read on navigation as well as on a timer: opening a thread clears it
+    // server-side, and the badge should go with it rather than linger for 30s.
+    const timer = setInterval(load, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [role, pathname]);
+
+  return count;
+}
+
 /**
  * The navigation itself, shared by the docked sidebar and the drawer.
  *
@@ -174,6 +217,7 @@ function NavList({
   animateActive?: boolean;
 }) {
   const [role] = useRole();
+  const unread = useUnread();
   const mine = ROLE_TOOLS[role];
   const roleLabel = ROLES.find((r) => r.role === role)?.label ?? role;
 
@@ -208,7 +252,12 @@ function NavList({
                     className="h-4 w-4 shrink-0 text-emerald-700"
                     strokeWidth={active ? 2.2 : 1.9}
                   />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {unread > 0 && item.href === unreadHref(role) ? (
+                    <span className="tnum ml-auto grid h-4.5 min-w-[18px] shrink-0 place-items-center rounded-full bg-status-conflicting px-1 text-[10px] font-bold text-white">
+                      {unread}
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             );

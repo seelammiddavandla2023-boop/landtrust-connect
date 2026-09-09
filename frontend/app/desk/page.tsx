@@ -193,6 +193,32 @@ function VerifierQueue() {
             }
           />
           <div className="space-y-3 p-4">
+            <div className="rounded-xl bg-canvas-sunken p-3.5">
+              <div className="section-label mb-1.5">Listed by</div>
+              <p className="text-[13px] font-medium text-ink">
+                {a.seller?.listed_owner_name}
+                {a.seller?.account_name && a.seller.account_name !== a.seller.listed_owner_name
+                  ? ` (account: ${a.seller.account_name})`
+                  : ""}
+              </p>
+              <p className="text-2xs text-ink-muted">
+                {[a.seller?.email, a.seller?.phone].filter(Boolean).join(" · ") || "—"}
+              </p>
+              <p className="mt-1.5 text-2xs leading-relaxed text-ink-subtle">
+                {a.seller?.note}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Chip tone="neutral">{a.documents_on_file} document(s) on file</Chip>
+                {a.latest_upload ? (
+                  <Chip tone="navy">
+                    latest: {a.latest_upload.filename}
+                  </Chip>
+                ) : (
+                  <Chip tone="amber">no evidence uploaded yet</Chip>
+                )}
+              </div>
+            </div>
+
             {a.documents_to_examine.length === 0 ? (
               <p className="text-[13px] text-ink-muted">
                 The pipeline raised no integrity indicator on this file, so there is nothing to
