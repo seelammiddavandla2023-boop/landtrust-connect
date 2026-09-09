@@ -5,6 +5,7 @@ import Link from "next/link";
 import React from "react";
 
 import { useApi } from "@/components/hooks";
+import { ListPropertyButton } from "@/components/list-property";
 import {
   BandBadge,
   Card,
@@ -53,10 +54,17 @@ export default function PropertiesPage() {
 
   return (
     <div className="space-y-6">
+      {/*
+        The listing control sits here as well as in the owner portal. An owner
+        following "My properties" in the sidebar arrives on this page, and a
+        button that lives only on a different page is a button they will not
+        find. It disables itself for every other role.
+      */}
       <SectionHeading
         eyebrow="Workspace"
         title="Properties"
-        description="Six synthetic files spanning the risk spectrum, from a fully corroborated title to a file the platform refuses to let progress. Open one to see the evidence behind every figure."
+        description="Every file on the platform, from a fully corroborated title to one it refuses to let progress. Open any of them to see the evidence behind every figure."
+        action={<ListPropertyButton onCreated={refetch} />}
       />
 
       <div className="flex flex-wrap items-center gap-3">
